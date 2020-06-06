@@ -10,6 +10,13 @@ using KernelAbstractions
 # TODO: This is big ugly; will work on a better norm interface
 const weighted_norm = false
 
+# TODO: Should these helper functions belong to SystemSolvers?
+# (Probably not; should belong to MPIStateArrays.jl or some Array package)
+array_device(::Union{Array, SArray, MArray}) = CPU()
+array_device(::CuArray) = CUDA()
+realview(Q::Union{Array, SArray, MArray}) = Q
+realview(Q::CuArray) = Q
+
 # Just for testing SystemSolvers
 LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
 LinearAlgebra.norm(A::MVector, weighted::Bool) = norm(A, 2, weighted)
@@ -113,13 +120,13 @@ function linearsolve!(
         iters += inner_iters
 
         if !isfinite(residual_norm)
-            error("norm of residual is not finite after $iters iterations of `doiteration!`")
+            error("norm of residual is not finite after $iters iterations")
         end
 
         achieved_tolerance = residual_norm / threshold * solver.rtol
     end
 
-    converged || @warn "Solver did not attain convergence after $iters iterations"
+    converged || @warn "Solver did not converge after $iters iterations"
     cvg[] = converged
 
     iters
@@ -136,5 +143,6 @@ end
 end
 
 # TODO: Include concrete implementations and interfaces
+include("krylov_methods/gmres.jl")
 
 end  # End of module
