@@ -10,11 +10,13 @@ using Random
     n = 10
 
     methods = (
+        (b, tol) -> GeneralizedConjugateResidual(2, b, rtol = tol),
         (b, tol) -> GeneralizedMinimalResidual(b, M = 3, rtol = tol),
         (b, tol) -> GeneralizedMinimalResidual(b, M = n, rtol = tol),
     )
 
     expected_iters = (
+        Dict(Float32 => 7, Float64 => 11),
         Dict(Float32 => 5, Float64 => 17),
         Dict(Float32 => 4, Float64 => 10),
     )
