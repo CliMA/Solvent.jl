@@ -14,8 +14,8 @@ const weighted_norm = false
 # (Probably not; should belong to MPIStateArrays.jl or some Array package)
 array_device(::Union{Array, SArray, MArray}) = CPU()
 array_device(::CuArray) = CUDA()
-realview(Q::Union{Array, SArray, MArray}) = Q
-realview(Q::CuArray) = Q
+realview(x::Union{Array, SArray, MArray}) = x
+realview(x::CuArray) = x
 
 # Just for testing SystemSolvers
 LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
@@ -143,6 +143,7 @@ end
 end
 
 # TODO: Include concrete implementations and interfaces
+include("krylov_methods/gcr.jl")
 include("krylov_methods/gmres.jl")
 
 end  # End of module
