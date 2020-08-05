@@ -1,4 +1,4 @@
-module SystemSolvers
+module Solvent
 
 using Adapt
 using CuArrays
@@ -9,14 +9,14 @@ using KernelAbstractions
 
 const weighted_norm = false
 
-# TODO: Should these helper functions belong to SystemSolvers?
+# TODO: Should these helper functions belong to Solvent?
 # (Probably not; should belong to MPIStateArrays.jl or some Array package)
 array_device(::Union{Array, SArray, MArray}) = CPU()
 array_device(::CuArray) = CUDA()
 realview(x::Union{Array, SArray, MArray}) = x
 realview(x::CuArray) = x
 
-# Just for testing SystemSolvers
+# Just for testing Solvent
 LinearAlgebra.norm(A::MVector, p::Real, weighted::Bool) = norm(A, p)
 LinearAlgebra.norm(A::MVector, weighted::Bool) = norm(A, 2, weighted)
 LinearAlgebra.dot(A::MVector, B::MVector, weighted) = dot(A, B)

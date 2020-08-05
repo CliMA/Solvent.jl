@@ -1,5 +1,5 @@
 using Test
-using SystemSolvers
+using Solvent
 using StaticArrays
 using LinearAlgebra
 using Random
@@ -7,7 +7,7 @@ using Printf
 
 # this test setup is partly based on IterativeSolvers.jl, see e.g
 # https://github.com/JuliaMath/IterativeSolvers.jl/blob/master/test/cg.jl
-@testset "SystemSolvers small full system" begin
+@testset "Solvent small full system" begin
     n = 10
 
     for T in [Float32, Float64]
@@ -58,7 +58,7 @@ using Printf
     end
 end
 
-@testset "SystemSolvers larger full system" begin
+@testset "Solvent larger full system" begin
     n = 1000
 
     for T in [Float32, Float64]
