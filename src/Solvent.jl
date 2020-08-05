@@ -1,7 +1,7 @@
 module Solvent
 
 using Adapt
-using CuArrays
+using CUDA
 using LinearAlgebra
 using LazyArrays
 using StaticArrays
@@ -9,10 +9,8 @@ using KernelAbstractions
 
 const weighted_norm = false
 
-# TODO: Should these helper functions belong to Solvent?
-# (Probably not; should belong to MPIStateArrays.jl or some Array package)
 array_device(::Union{Array, SArray, MArray}) = CPU()
-array_device(::CuArray) = CUDA()
+array_device(::CuArray) = CUDADevice()
 realview(x::Union{Array, SArray, MArray}) = x
 realview(x::CuArray) = x
 
