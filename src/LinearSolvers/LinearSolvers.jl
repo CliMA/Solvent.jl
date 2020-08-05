@@ -69,9 +69,10 @@ function linearsolve!(
     args...;
     cvg = Ref{Bool}(),
 )
+    converged = false
+    iters = 0
     krylov_alg = linearsolver.krylov_alg
     linearoperator! = linearsolver.linop!
-
     converged, threshold = LSinitialize!(
         krylov_alg,
         linearsolver,
@@ -79,16 +80,15 @@ function linearsolve!(
         Qrhs,
         args...,
     )
-
-    converged && return 0
+    converged && return iters
     
     converged, iters, residual_norm = LSsolve!(
         linearsolver,
+        threshold,
         Q,
         Qrhs,
         args...,
     )
-
     converged || @warn "Linear solver did not attain convergence after $iters iterations"
     cvg[] = converged
     iters
@@ -121,6 +121,7 @@ end
 
 function LSsolve!(
     linearsolver::LinearSolver,
+    threshold,
     Q,
     Qrhs,
     args...,
@@ -128,6 +129,7 @@ function LSsolve!(
     LSsolve!(
         linearsolver.krylov_alg,
         linearsolver,
+        threshold,
         Q,
         Qrhs,
         args...,

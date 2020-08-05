@@ -22,7 +22,7 @@ using Printf
         x = @MVector rand(T, n)
 
         tol = sqrt(eps(T))
-        solver_type = GeneralizedMinimalResidualMethod(M = 30, K = 5)
+        solver_type = GeneralizedMinimalResidualMethod(M = n, K = 1)
         preconditioner = Identity(pc_side=PCleft())
         linearsolver = LinearSolver(
             mulbyA!,
@@ -74,7 +74,7 @@ end
             x = rand(T, n)
 
             tol = sqrt(eps(T))
-            solver_type = GeneralizedMinimalResidualMethod(M = 30, K = 10)
+            solver_type = GeneralizedMinimalResidualMethod(M = 20, K = 10)
             preconditioner = Identity(pc_side=PCright())
             linearsolver = LinearSolver(
                 mulbyA!,
