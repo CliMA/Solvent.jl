@@ -22,7 +22,7 @@ using Printf
         x = @MVector rand(T, n)
 
         tol = sqrt(eps(T))
-        solver_type = GeneralizedMinimalResidualMethod(M = 10, K = 2)
+        solver_type = GeneralizedMinimalResidualMethod(M = 30, K = 5)
         preconditioner = Identity(pc_side=PCleft())
         linearsolver = LinearSolver(
             mulbyA!,
@@ -46,18 +46,19 @@ using Printf
 
         newtol = 1000tol
         settolerance!(linearsolver, newtol)
-        settolerance!(linearsolver, newtol; relative=true)
+        settolerance!(linearsolver, newtol; relative = true)
 
         x = @MVector rand(T, n)
-        b = @MVector zeros(T, n)
+        x0 = copy(x)
         linearsolve!(linearsolver, x, b)
 
-        @test norm(x) < eps(T)
+        @test norm(A * x - b) / norm(A * x0 - b) <= newtol
+        @test norm(A * x - b) / norm(A * x0 - b) >= tol
 
     end
 end
 
-@testset "SystemSolvers large full system" begin
+@testset "SystemSolvers larger full system" begin
     n = 1000
 
     for T in [Float32, Float64]
@@ -95,59 +96,16 @@ end
             @test iters == 0
             @test norm(A * x - b) <= tol
 
-            newtol = 10000tol
+            newtol = 1000tol
             settolerance!(linearsolver, newtol)
             settolerance!(linearsolver, newtol; relative=true)
 
             x = rand(T, n)
-            b = zeros(T, n)
+            x0 = copy(x)
             linearsolve!(linearsolver, x, b)
     
-            @test norm(x) < eps(T)
+            @test norm(A * x - b) / norm(A * x0 - b) <= newtol
 
         end
     end
 end
-# @testset "SystemSolvers large full system" begin
-#     n = 1000
-
-#     methods = (
-#         (b, tol) -> GeneralizedMinimalResidual(b, M = 15, rtol = tol),
-#         (b, tol) -> GeneralizedMinimalResidual(b, M = 20, rtol = tol),
-#     )
-
-#     expected_iters = (
-#         Dict(Float32 => (3, 3), Float64 => (9, 8)),
-#         Dict(Float32 => (3, 3), Float64 => (9, 8)),
-#     )
-
-#     for (m, method) in enumerate(methods), T in [Float32, Float64]
-#         for (i, α) in enumerate(T[1e-2, 5e-3])
-#             Random.seed!(44)
-#             A = rand(T, 200, 1000)
-#             A = α * A' * A + I
-#             b = rand(T, n)
-
-#             mulbyA!(y, x) = (y .= A * x)
-
-#             tol = sqrt(eps(T))
-#             linearsolver = method(b, tol)
-
-#             x = rand(T, n)
-#             x0 = copy(x)
-#             iters = linearsolve!(mulbyA!, linearsolver, x, b; max_iters = Inf)
-
-#             @test iters == expected_iters[m][T][i]
-#             @test norm(A * x - b) / norm(A * x0 - b) <= tol
-
-#             newtol = 1000tol
-#             settolerance!(linearsolver, newtol)
-
-#             x = rand(T, n)
-#             x0 = copy(x)
-#             linearsolve!(mulbyA!, linearsolver, x, b; max_iters = Inf)
-
-#             @test norm(A * x - b) / norm(A * x0 - b) <= newtol
-#         end
-#     end
-# end
