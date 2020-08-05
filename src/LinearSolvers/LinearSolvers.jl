@@ -139,10 +139,10 @@ end
 @kernel function linearcombination!(Q, cs, Xs, increment::Bool)
     i = @index(Global, Linear)
     if !increment
-        @inbounds Q[i] = -zero(eltype(Q))
+        @inbounds Q[i] .= -zero(eltype(Q))
     end
     @inbounds for j in 1:length(cs)
-        Q[i] += cs[j] * Xs[j][i]
+        Q[i] .+= cs[j] .* Xs[j][i]
     end
 end
 
