@@ -14,9 +14,9 @@ end
 mutable struct GMRESCache{M, MP1, MMP1, T, AT} <: AbstractLinearSolverCache
     krylov_basis::NTuple{MP1, AT}
     "Hessenberg matrix"
-    H::MArray{Tuple{MP1, M}, T, 2, MMP1}
+    H::Matrix{T}
     "rhs of the least squares problem"
-    g0::MArray{Tuple{MP1, 1}, T, 2, MP1}
+    g0::Vector{T}
     "work vector for preconditioning"
     Wvec::AT
 end
@@ -28,8 +28,9 @@ function cache(
     Wvec = similar(Q)
     M = krylov_alg.M
     krylov_basis = ntuple(i -> similar(Q), M + 1)
-    H = @MArray zeros(M + 1, M)
-    g0 = @MArray zeros(M + 1)
+    FT = eltype(Q)
+    H = zeros(M + 1, M)
+    g0 = zeros(M + 1)
 
     return GMRESCache{M, M + 1, M * (M + 1), eltype(Q), AT}(
         krylov_basis,
@@ -177,9 +178,9 @@ function gmres_cycle!(
     end
 
     # solve the triangular system
-    y = SVector{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
+    y = @views UpperTriangular(H[1:j, 1:j]) \ g0[1:j]
 
-    ## compose the solution
+    # compose the solution
     rv_Q = realview(Q)
     rv_krylov_basis = realview.(krylov_basis)
     groupsize = 256

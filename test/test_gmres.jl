@@ -2,6 +2,7 @@ using Test
 using Solvent
 using StaticArrays
 using LinearAlgebra
+using SparseArrays
 using Random
 using Printf
 
@@ -58,54 +59,52 @@ using Printf
     end
 end
 
-@testset "Solvent larger full system" begin
-    n = 1000
+@testset "Solvent large sparse system" begin
+    n = 10000
 
     for T in [Float32, Float64]
-        for (i, α) in enumerate(T[1e-2, 5e-3])
-            Random.seed!(44)
+        Random.seed!(44)
 
-            A = rand(T, 200, 1000)
-            A = α * A' * A + I
-            b = rand(T, n)
+        α = 1e-2
+        A = I + α * sprandn(T, n, n, 0.05)
+        b = rand(T, n)
 
-            mulbyA!(y, x) = (y .= A * x)
+        mulbyA!(y, x) = (y .= A * x)
 
-            x = rand(T, n)
+        x = rand(T, n)
 
-            tol = sqrt(eps(T))
-            solver_type = GeneralizedMinimalResidualMethod(M = 20, K = 10)
-            preconditioner = Identity(pc_side=PCright())
-            linearsolver = LinearSolver(
-                mulbyA!,
-                solver_type,
-                preconditioner,
-                x;
-                rtol = tol,
-                atol = tol,
-            )
+        tol = sqrt(eps(T))
+        solver_type = GeneralizedMinimalResidualMethod(M = 20, K = 10)
+        preconditioner = Identity(pc_side=PCright())
+        linearsolver = LinearSolver(
+            mulbyA!,
+            solver_type,
+            preconditioner,
+            x;
+            rtol = tol,
+            atol = tol,
+        )
 
-            x0 = copy(x)
-            linearsolve!(linearsolver, x, b)
-            @test norm(A * x - b) / norm(A * x0 - b) <= tol
+        x0 = copy(x)
+        linearsolve!(linearsolver, x, b)
+        @test norm(A * x - b) / norm(A * x0 - b) <= tol
 
-            # test for convergence in 0 iterations by
-            # initializing with the exact solution
-            x = A \ b
-            iters = linearsolve!(linearsolver, x, b)
-            @test iters == 0
-            @test norm(A * x - b) <= tol
+        # test for convergence in 0 iterations by
+        # initializing with the exact solution
+        x = A \ b
+        iters = linearsolve!(linearsolver, x, b)
+        @test iters == 0
+        @test norm(A * x - b) <= tol
 
-            newtol = 1000tol
-            settolerance!(linearsolver, newtol)
-            settolerance!(linearsolver, newtol; relative=true)
+        newtol = 1000tol
+        settolerance!(linearsolver, newtol)
+        settolerance!(linearsolver, newtol; relative=true)
 
-            x = rand(T, n)
-            x0 = copy(x)
-            linearsolve!(linearsolver, x, b)
-    
-            @test norm(A * x - b) / norm(A * x0 - b) <= newtol
+        x = rand(T, n)
+        x0 = copy(x)
+        linearsolve!(linearsolver, x, b)
 
-        end
+        @test norm(A * x - b) / norm(A * x0 - b) <= newtol
+
     end
 end
