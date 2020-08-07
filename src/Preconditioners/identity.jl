@@ -10,7 +10,7 @@ end
 
 struct IdentityCache <: AbstractPreconditionerCache end
 
-function cache(pc_type::Identity, linearoperator!, Q)
+function cache(::Identity, linearoperator!, Q)
     return IdentityCache()
 end
 
