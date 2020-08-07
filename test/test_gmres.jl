@@ -31,7 +31,6 @@ using Printf
             rtol = tol,
             atol = tol,
         )
-
         x0 = copy(x)
         linearsolve!(linearsolver, x, b)
         @test norm(A * x - b) / norm(A * x0 - b) <= tol
@@ -59,11 +58,13 @@ end
 
 @testset "Solvent large sparse system: GMRES" begin
     n = 10000
+    M = 20
+    K = 10
 
     for T in [Float32, Float64]
         Random.seed!(44)
 
-        α = 1e-2
+        α = 1f-2
         A = I + α * sprandn(T, n, n, 0.05)
         b = rand(T, n)
 
@@ -72,7 +73,7 @@ end
         x = rand(T, n)
 
         tol = sqrt(eps(T))
-        solver_type = GeneralizedMinimalResidualMethod(M = 20, K = 10)
+        solver_type = GeneralizedMinimalResidualMethod(M = M, K = K)
         preconditioner = Identity(pc_side=PCright())
         linearsolver = LinearSolver(
             mulbyA!,
@@ -103,6 +104,5 @@ end
         linearsolve!(linearsolver, x, b)
 
         @test norm(A * x - b) / norm(A * x0 - b) <= newtol
-
     end
 end
