@@ -45,8 +45,9 @@ jobs:
 
     - name: Install Project Packages
       run: |
-        julia --project=benchmark/ -e 'using Pkg; Pkg.instantiate()'
+        julia --project -e 'using Pkg; Pkg.instantiate()'
+        julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
 
     - name: Run Benchmarks
       run: |
-        julia --project=benchmark/ benchmark/runbenchmarks.jl
+        julia --project=benchmark benchmark/runbenchmarks.jl

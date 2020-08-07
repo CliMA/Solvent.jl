@@ -24,11 +24,9 @@ using Printf
 
         tol = sqrt(eps(T))
         solver_type = GeneralizedMinimalResidualMethod(M = n, K = 1)
-        linearsolver = LinearSolver(
             mulbyA!,
             solver_type,
             x;
-            rtol = tol,
             atol = tol,
         )
 

@@ -32,8 +32,8 @@ for T in [Float32, Float64]
     linearsolver = LinearSolver(
         mulbyA!,
         solver_type,
-        preconditioner,
         x;
+        pc_alg = preconditioner,
         rtol = tol,
         atol = tol,
     )
