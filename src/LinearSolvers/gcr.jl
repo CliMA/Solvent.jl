@@ -17,8 +17,8 @@ mutable struct GCRCache{M, T, AT} <: AbstractLinearSolverCache
     L_residual::AT
     p::NTuple{M, AT}
     L_p::NTuple{M, AT}
-    alpha::MArray{Tuple{M}, T, 1, M}
-    normsq::MArray{Tuple{M}, T, 1, M}
+    alpha::Vector{T}
+    normsq::Vector{T}
 end
 
 function cache(
@@ -31,8 +31,8 @@ function cache(
     L_residual = similar(Q)
     p = ntuple(i -> similar(Q), M)
     L_p = ntuple(i -> similar(Q), M)
-    alpha = @MArray zeros(M)
-    normsq = @MArray zeros(M)
+    alpha = zeros(M)
+    normsq = zeros(M)
 
     return GCRCache{M, T, AT}(
         residual,
