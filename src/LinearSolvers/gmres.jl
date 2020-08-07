@@ -178,7 +178,7 @@ function gmres_cycle!(
     end
 
     # solve the triangular system
-    y = @views UpperTriangular(H[1:j, 1:j]) \ g0[1:j]
+    y = NTuple{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
 
     # compose the solution
     rv_Q = realview(Q)
