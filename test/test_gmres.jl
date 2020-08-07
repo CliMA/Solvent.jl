@@ -5,9 +5,6 @@ using LinearAlgebra
 using SparseArrays
 using Random
 using Printf
-using IterativeSolvers: gmres!
-using KrylovKit: GMRES, linsolve
-using Krylov: dqgmres
 
 # this test setup is partly based on IterativeSolvers.jl, see e.g
 # https://github.com/JuliaMath/IterativeSolvers.jl/blob/master/test/cg.jl

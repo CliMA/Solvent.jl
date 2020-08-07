@@ -1,9 +1,11 @@
-name: Benchmark
+name: Benchmarks
 
 on:
   pull_request:
 
   push:
+    branches:
+      - master
 
 jobs:
   test-os:
@@ -43,8 +45,8 @@ jobs:
 
     - name: Install Project Packages
       run: |
-        julia --project=benchmarking -e 'using Pkg; Pkg.instantiate(); Pkg.build()'
+        julia --project=benchmark/ -e 'using Pkg; Pkg.instantiate()'
 
-    - name: Run Benchmarking
+    - name: Run Benchmarks
       run: |
-        julia --project=benchmarking -e 'using Pkg; Pkg.test()'
+        julia --project=benchmark/ benchmark/runbenchmarks.jl
