@@ -8,7 +8,7 @@ using Printf
 
 # this test setup is partly based on IterativeSolvers.jl, see e.g
 # https://github.com/JuliaMath/IterativeSolvers.jl/blob/master/test/cg.jl
-@testset "Solvent small full system" begin
+@testset "Solvent small full system: GMRES" begin
     n = 10
 
     for T in [Float32, Float64]
@@ -24,11 +24,9 @@ using Printf
 
         tol = sqrt(eps(T))
         solver_type = GeneralizedMinimalResidualMethod(M = n, K = 1)
-        preconditioner = Identity(pc_side=PCleft())
         linearsolver = LinearSolver(
             mulbyA!,
             solver_type,
-            preconditioner,
             x;
             rtol = tol,
             atol = tol,
@@ -59,7 +57,7 @@ using Printf
     end
 end
 
-@testset "Solvent large sparse system" begin
+@testset "Solvent large sparse system: GMRES" begin
     n = 10000
 
     for T in [Float32, Float64]
@@ -79,8 +77,8 @@ end
         linearsolver = LinearSolver(
             mulbyA!,
             solver_type,
-            preconditioner,
             x;
+            pc_alg = preconditioner,
             rtol = tol,
             atol = tol,
         )
