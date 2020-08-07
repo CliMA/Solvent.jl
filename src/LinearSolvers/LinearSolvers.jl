@@ -34,8 +34,8 @@ mutable struct LinearSolver{
     function LinearSolver(
         linearoperator!,
         krylov_alg::AbstractKrylovMethod,
-        pc_alg::AbstractPreconditionerType,
         Q::AT;
+        pc_alg = Identity(),
         rtol = √eps(eltype(AT)),
         atol = eps(eltype(AT)),
     ) where {AT}
@@ -147,3 +147,4 @@ end
 end
 
 include("gmres.jl")
+include("gcr.jl")
