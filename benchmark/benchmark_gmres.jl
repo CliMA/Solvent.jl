@@ -63,39 +63,3 @@ for T in [Float32, Float64]
 end
 
 
-# A*x  where A[i,i] = 1, A[i,i-1] = A[i,i+1] = param
-@kernel function laplace!(Ax, x, param)
-    i = @index(Global, Linear)
-    @inbounds begin
-        Ax[i] =  x[i] 
-        if i > 1
-            Ax[i] += param*x[i-1]
-        end
-        if i < length(x)
-            Ax[i] += param * x[i+1]
-        end
-    end
-end
-
-function laplaceop!(AX,X)        
-    event = laplace!(CUDADevice(), 256)(
-        AX, X, -0.01; ndrange=length(X))        
-    wait(event)
-end
-
-#=
-T = Float64
-M = 20
-K = 10
-tol = sqrt(eps(T))
-
-x = CuArray(randn(1000))
-solver_type = GeneralizedMinimalResidualMethod(M = M, K = K)
-linearsolver = LinearSolver(
-    laplaceop!,
-    solver_type,
-    x;
-    rtol = tol,
-    atol = tol,
-)
-=#
