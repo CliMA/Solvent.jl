@@ -1,8 +1,5 @@
 
-using Printf
-
 export ConjugateGradientMethod
-
 
 struct ConjugateGradientMethod <: AbstractKrylovMethod
     "Maximum number of CG iterations"
@@ -13,29 +10,26 @@ struct ConjugateGradientMethod <: AbstractKrylovMethod
 end
 
 mutable struct CGCache{AT} <: AbstractLinearSolverCache
-    r0::AT
-    r1::AT
-    z0::AT
-    z1::AT
-    p0::AT
+    r::AT
+    z::AT
+    p::AT
+    Ap::AT
 end
 
 function cache(
     krylov_alg::ConjugateGradientMethod,
     Q::AT,
 ) where {AT}
-    r0 = similar(Q)
-    r1 = similar(Q)
-    z0 = similar(Q)
-    z1 = similar(Q)
-    p0 = similar(Q)
+    r = similar(Q)
+    z = similar(Q)
+    p = similar(Q)
+    Ap = similar(Q)
 
     return CGCache{AT}(
-        r0,
-        r1,
-        z0,
-        z1,
-        p0,
+        r,
+        z,
+        p,
+        Ap,
     )
 end
 
@@ -51,15 +45,14 @@ function LSinitialize!(
     PCinitialize!(pc, Q, Qrhs, args...)
 
     cache = solver.cache
-    r0 = cache.r0
-    z0 = cache.z0
-    p0 = cache.p0
+    r = cache.r
+    z = cache.z
+    p = cache.p
 
-    linearoperator!(r0, Q, args...)
-    @. r0 = Qrhs - r0
+    linearoperator!(r, Q, args...)
+    r .= Qrhs .- r
 
-    residual_norm = norm(r0, weighted_norm)
-    @info "Initial residual: $residual_norm"
+    residual_norm = norm(r, weighted_norm)
     threshold = solver.rtol * residual_norm
 
     converged = false
@@ -69,8 +62,8 @@ function LSinitialize!(
     end
 
     isa(pc.pc_side, PCleft) || error("Only supports left preconditioning")
-    PCapply!(pc, z0, r0, args...)
-    @. p0 = z0
+    PCapply!(pc, z, r, args...)
+    p .= z
 
     converged, max(threshold, solver.atol)
 end
@@ -90,29 +83,28 @@ function LSsolve!(
     linearoperator! = solver.linop!
     pc = solver.pc
     cache = solver.cache
-    r0 = cache.r0
-    r1 = cache.r1
-    z0 = cache.z0
-    z1 = cache.z1
-    p0 = cache.p0
+    r = cache.r
+    z = cache.z
+    p = cache.p
+    Ap = cache.Ap
 
-    Ap0 = similar(Q)
-
+    ω0 = dot(r, z)
     while !converged && iter < krylov_alg.M
-        linearoperator!(Ap0, p0, args...)
-        α = r0' * z0 / (p0' * Ap0)
-        @. Q += α * p0
-        @. r1 = r0 - α * Ap0
-        residual_norm = norm(r1, weighted_norm)
-        @info "Residual at iteration $iter: $residual_norm"
+        linearoperator!(Ap, p, args...)
+        α = ω0 / dot(p, Ap)
+        Q .+= α .* p
+        r .= r .- α .* Ap
+        residual_norm = norm(r, weighted_norm)
         if residual_norm < threshold
             converged = true
             break
         end
         # apply preconditioning
-        PCapply!(pc, cache.z1, r1, args...)
-        β = r1' * z1 / (r0' * z0)
-        @. p0 = z1 + β * p0
+        PCapply!(pc, z, r, args...)
+        ω1 = dot(r, z)
+        β =  ω1 / ω0
+        p .= z .+ β .* p
+        ω0 = ω1
         iter += 1
     end
 
