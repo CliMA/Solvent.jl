@@ -24,7 +24,7 @@ A[i,i-1] = A[i,i+1] = param
 ```
 """
 function laplace!(AX, X, param=-0.01)
-    event = laplace!(CUDADevice(), 256)(
+    event = laplace_kernel!(CUDADevice(), 256)(
         AX, X, eltype(X)(param); ndrange=length(X))        
     wait(event)
 end
@@ -41,7 +41,7 @@ for T in (Float32, Float64)
     x = copy(b)
     
     linearsolver = LinearSolver(
-        laplaceop!,
+        laplace!,
         GeneralizedMinimalResidualMethod(M = M, K = K),
         x;
         rtol = tol,
