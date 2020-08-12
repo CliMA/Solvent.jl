@@ -7,8 +7,6 @@ using LazyArrays
 using StaticArrays
 using KernelAbstractions
 
-const weighted_norm = false
-
 array_device(::Union{Array, SArray, MArray}) = CPU()
 array_device(::CuArray) = CUDADevice()
 realview(x::Union{Array, SArray, MArray}) = x
