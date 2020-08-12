@@ -23,8 +23,8 @@ A[i,i] = 1
 A[i,i-1] = A[i,i+1] = param
 ```
 """
-function laplace!(AX, X, param=-0.01)
-    event = laplace_kernel!(CUDADevice(), 256)(
+function laplace!(AX, X, param=eltype(X)(-0.01))
+    event = laplace_kernel!(Solvent.array_device(X), 256)(
         AX, X, eltype(X)(param); ndrange=length(X))        
     wait(event)
 end
@@ -32,13 +32,15 @@ end
 for T in (Float32, Float64)
     Random.seed!(44)
     
-    n = 1000
+    n = 200
     M = 20
     K = 10
     tol = sqrt(eps(T))
 
-    b = CuArray(randn(n))
-    x = copy(b)
+    x_ref = CuArray(randn(T,n))
+    x = similar(x_ref)
+    b = similar(x_ref)
+    laplace!(b,x_ref)
     
     linearsolver = LinearSolver(
         laplace!,
@@ -49,6 +51,5 @@ for T in (Float32, Float64)
     )
 
     linearsolve!(linearsolver, x, b)
-    x_ref = SymTridiagonal(fill(T(1),n), fill(T(-0.1),n-1)) \ Array(b)
     @test Array(x) ≈ x_ref
 end
