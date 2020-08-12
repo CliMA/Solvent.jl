@@ -65,12 +65,12 @@ function LSinitialize!(
     rtol = solver.rtol
     atol = solver.atol
 
-    threshold = rtol * norm(Qrhs, weighted_norm)
+    threshold = rtol * norm(Qrhs)
     linearoperator!(residual, Q, args...)
     @. residual -= Qrhs
 
     converged = false
-    residual_norm = norm(residual, weighted_norm)
+    residual_norm = norm(residual)
     if residual_norm < threshold
         converged = true
         return converged, threshold
@@ -137,13 +137,13 @@ function gcr_cycle!(
     M = solver.krylov_alg.M
     for outer k in 1:M
 
-        normsq[k] = norm(L_p[k], weighted_norm)^2
-        beta = -dot(residual, L_p[k], weighted_norm) / normsq[k]
+        normsq[k] = norm(L_p[k])^2
+        beta = -dot(residual, L_p[k]) / normsq[k]
 
         @. Q += beta * p[k]
         @. residual += beta * L_p[k]
 
-        residual_norm = norm(residual, weighted_norm)
+        residual_norm = norm(residual)
 
         if residual_norm < threshold
             converged = true
@@ -153,7 +153,7 @@ function gcr_cycle!(
         linearoperator!(L_residual, residual, args...)
 
         for l in 1:k
-            alpha[l] = -dot(L_residual, L_p[l], weighted_norm) / normsq[l]
+            alpha[l] = -dot(L_residual, L_p[l]) / normsq[l]
         end
 
         if k < M

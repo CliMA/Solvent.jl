@@ -68,7 +68,7 @@ function LSinitialize!(
         @. krylov_basis[1] = cache.Wvec
     end
 
-    residual_norm = norm(krylov_basis[1], weighted_norm)
+    residual_norm = norm(krylov_basis[1])
     threshold = solver.rtol * residual_norm
 
     converged = false
@@ -150,10 +150,10 @@ function gmres_cycle!(
 
         # Arnoldi using the Modified Gram Schmidt orthonormalization
         for i in 1:j
-            H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i], weighted_norm)
+            H[i, j] = dot(krylov_basis[j + 1], krylov_basis[i])
             @. krylov_basis[j + 1] -= H[i, j] * krylov_basis[i]
         end
-        H[j + 1, j] = norm(krylov_basis[j + 1], weighted_norm)
+        H[j + 1, j] = norm(krylov_basis[j + 1])
         krylov_basis[j + 1] ./= H[j + 1, j]
 
         # apply the previous Givens rotations to the new column of H
