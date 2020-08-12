@@ -51,5 +51,5 @@ for T in (Float32, Float64)
     )
 
     linearsolve!(linearsolver, x, b)
-    @test Array(x) ≈ x_ref
+    @test x ≈ x_ref
 end
