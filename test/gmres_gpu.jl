@@ -1,5 +1,4 @@
-using Solvent, Test, LinearAlgebra
-using CUDA, KernelAbstractions
+using Solvent, Test, LinearAlgebra, Random, CUDA, KernelAbstractions
 
 
 @kernel function laplace_kernel!(Ax, x, param)
