@@ -1,10 +1,7 @@
-using CUDA, Solvent, Test, LinearAlgebra
+using Solvent, Test, LinearAlgebra
+using CUDA, KernelAbstractions
 
 
-"""
-
-Applies the operator `A*x`  where `A[i,i] = 1`, `A[i,i-1] = A[i,i+1] = param`
-"""
 @kernel function laplace_kernel!(Ax, x, param)
     i = @index(Global, Linear)
     @inbounds begin
@@ -18,6 +15,15 @@ Applies the operator `A*x`  where `A[i,i] = 1`, `A[i,i-1] = A[i,i+1] = param`
     end
 end
 
+"""
+    laplace!(AX, X, param=-0.01)
+        
+Applies the 1d Laplace operator `A*x`  where 
+```
+A[i,i] = 1
+A[i,i-1] = A[i,i+1] = param
+```
+"""
 function laplace!(AX, X, param=-0.01)
     event = laplace!(CUDADevice(), 256)(
         AX, X, eltype(X)(param); ndrange=length(X))        
