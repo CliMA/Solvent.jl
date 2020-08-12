@@ -1,101 +1,86 @@
-using Solvent
-
 using CUDA
 using KernelAbstractions
 using LinearAlgebra
 using SparseArrays
 using Random
 using Printf
+using TimerOutputs
 
-using IterativeSolvers: gmres!
-using Krylov: dqgmres
-using KrylovKit: GMRES, linsolve
+import ConjGrad
+import IterativeSolvers 
+import Krylov
+import KrylovKit
+import Solvent
 
-n = 10000
-M = 20
-K = 10
-
-for T in [Float32, Float64]
-    Random.seed!(44)
-
-    α = 1f-2
-    A = I + α * sprandn(T, n, n, 0.05)
-    b = rand(T, n)
-
-    mulbyA!(y, x) = (y .= A * x)
-
-    x = rand(T, n)
-
-    tol = sqrt(eps(T))
-    solver_type = GeneralizedMinimalResidualMethod(M = M, K = K)
-    preconditioner = Identity(pc_side=PCright())
-    linearsolver = LinearSolver(
-        mulbyA!,
-        solver_type,
-        x;
-        pc_alg = preconditioner,
-        rtol = tol,
-        atol = tol,
-    )
-
-    x_ref = A \ b
-    
-    x_is = copy(x)
-    x_kk = copy(x)
-    algorithm = GMRES(krylovdim = M, maxiter = K, tol = tol)
-    # run once to trigger precompilation
-    _, time, alloc, gct, _             = @timed linearsolve!(linearsolver, x, b)
-    _, time_is, alloc_is, gct_is, _    = @timed gmres!(x_is, A, b, tol = tol, restart = M, maxiter = K)
-    x_kk, time_kk, alloc_kk, gct_kk, _ = @timed linsolve(A, b, x_kk, algorithm)[1]
-    x_k, time_k, alloc_k, gct_k, _     = @timed dqgmres(A, b; atol = tol, rtol = tol, memory = M, itmax = K)[1]
-    # run 2nd time
-    _, time, alloc, gct, _             = @timed linearsolve!(linearsolver, x, b)
-    _, time_is, alloc_is, gct_is, _    = @timed gmres!(x_is, A, b, tol = tol, restart = M, maxiter = K)
-    x_kk, time_kk, alloc_kk, gct_kk, _ = @timed linsolve(A, b, x_kk, algorithm)[1]
-    x_k, time_k, alloc_k, gct_k, _     = @timed dqgmres(A, b; atol = tol, rtol = tol, memory = M, itmax = K)[1]
-    @printf "\nTesting type %s:\n" string(T)
-    @printf "Method           | Diff from ref | Elapsed Time (s) | GC Time (s) | Allocations\n"
-    @printf "-----------------------------------------------------------------------------------\n"
-    @printf "Solvent          | %13g | %16g | %11g | %d\n" norm(x_ref - x)    time    gct    alloc
-    @printf "IterativeSolvers | %13g | %16g | %11g | %d\n" norm(x_ref - x_is) time_is gct_is alloc_is
-    @printf "KrylovKit        | %13g | %16g | %11g | %d\n" norm(x_ref - x_kk) time_kk gct_kk alloc_kk
-    @printf "Krylov           | %13g | %16g | %11g | %d\n" norm(x_ref - x_k)  time_k  gct_k  alloc_k
+function invertiblesparse_test(::Type{T}, nx::Int, ny::Int=nx, α::Number=0.01,
+        density::AbstractFloat=0.05) where T
+    A = I + T(α) * sprandn(T, nx, ny, density)
+    b = rand(T, nx)
+    xinit = rand(T, ny)
+    return (A, b, xinit)
 end
 
+function laplace_test(::Type{T}, nx::Int, ny::Int=nx, lx::Int=1,
+        ly::Int=lx) where T
+    dx = T(lx) / T(nx + 1)
+    dy = T(ly) / T(ny + 1)
+    Dx = [[T(1) spzeros(T, 1, nx - 1)]; spdiagm(1=>ones(T, nx - 1)) - I] / dx
+    Dy = [[T(1) spzeros(T, 1, ny - 1)]; spdiagm(1=>ones(T, ny - 1)) - I] / dy
+    Ax = Dx' * Dx
+    Ay = Dy' * Dy
+    A = kron(sparse(I, ny, ny), Ax) + kron(Ay, sparse(I, nx, nx))
+    b = rand(T, nx)
+    xinit = rand(T, ny)
+    return (A, b, xinit)
+end
 
-# A*x  where A[i,i] = 1, A[i,i-1] = A[i,i+1] = param
-@kernel function laplace!(Ax, x, param)
-    i = @index(Global, Linear)
-    @inbounds begin
-        Ax[i] =  x[i] 
-        if i > 1
-            Ax[i] += param*x[i-1]
+function benchmark_gmres!(timer::TimerOutput, Aname::String, dims::Int,
+        iters::Int, tol::Number, A::AbstractArray, b::Vector, xinit::Vector)
+    names = [string(algname, "-GMRES-", Aname) for algname in
+        ["IterativeSolvers", "Krylov", "KrylovKit", "Solvent"]]
+    xfinals = [copy(xinit) for _ in 1:4]
+    # Disable timer for precompilation, then run again with timer enabled.
+    for timerfunc in [disable_timer!, enable_timer!]
+        timerfunc(timer)
+        @timeit timer names[1] begin
+            IterativeSolvers.gmres!(xfinals[1], A, b, tol = tol, restart = dims,
+                maxiter = iters)
         end
-        if i < length(x)
-            Ax[i] += param * x[i+1]
+        @timeit timer names[2] begin
+            xfinals[2] = Krylov.dqgmres(A, b; atol = tol, rtol = tol,
+                memory = dims, itmax = iters)[1]
+        end
+        @timeit timer names[3] begin
+            algorithm = KrylovKit.GMRES(krylovdim = dims, maxiter = iters,
+                tol = tol)
+            xfinals[3] = KrylovKit.linsolve(A, b, xinit, algorithm)[1]
+        end
+        @timeit timer names[4] begin
+            linearsolver = Solvent.LinearSolver(
+                (y, x) -> (y .= A * x),
+                Solvent.GeneralizedMinimalResidualMethod(M = dims, K = iters),
+                xinit;
+                pc_alg = Solvent.Identity(pc_side=Solvent.PCright()),
+                rtol = tol,
+                atol = tol,
+            )
+            Solvent.linearsolve!(linearsolver, xfinals[4], b)
+        end
+    end
+    # TODO: Print residuals in same table as times and allocations.
+    # xexact = A \ b
+    # for i in 1:4
+    #     println(names[i], " Residual: ", norm(xfinals[i] - xexact))
+    # end
+end
+
+const timer = TimerOutput()
+for testfunc in [invertiblesparse_test]#, laplace_test]
+    for T in [Float32, Float64]
+        for _ in 1:3
+            benchmark_gmres!(timer, string(testfunc, "-", T, "-10000-20-10"),
+                20, 10, sqrt(eps(T)), testfunc(T, 10000)...)
         end
     end
 end
-
-function laplaceop!(AX,X)        
-    event = laplace!(CUDADevice(), 256)(
-        AX, X, -0.01; ndrange=length(X))        
-    wait(event)
-end
-
-#=
-T = Float64
-M = 20
-K = 10
-tol = sqrt(eps(T))
-
-x = CuArray(randn(1000))
-solver_type = GeneralizedMinimalResidualMethod(M = M, K = K)
-linearsolver = LinearSolver(
-    laplaceop!,
-    solver_type,
-    x;
-    rtol = tol,
-    atol = tol,
-)
-=#
+print_timer(timer, sortby = :name)
