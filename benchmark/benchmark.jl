@@ -93,7 +93,7 @@ function printbenchmarks(benchmarker::Benchmarker)
         "| Runs |     Time (ms)     |   Allocs (MiB)    |     Residual     ")
     println(" " ^ maxnamelen,
         "|      |  Min   Max   Avg  |  Min   Max   Avg  |  Min   Max   Avg ")
-    println("-" ^ (maxnamelen + 63))
+    println("-" ^ (maxnamelen + 66))
     for name in sort!(collect(keys(storage)))
         ba = storage[name]
         print(rpad(name, maxnamelen + 3))
@@ -106,13 +106,13 @@ function printbenchmarks(benchmarker::Benchmarker)
     end
 end
 
-function sparsesetup(::Type{T}, n::Int, α::Number=0.01,
+function sparsesetup(::Type{T}, n::Integer, α::Number=0.01,
         density::AbstractFloat=0.05) where T
     return BenchmarkSetup(I + T(α) * sprandn(T, n, n, density))
 end
 
-function laplacesetup(::Type{T}, nx::Int, ny::Int=nx, lx::Int=1,
-        ly::Int=lx) where T
+function laplacesetup(::Type{T}, nx::Integer, ny::Integer=nx, lx::Integer=1,
+        ly::Integer=lx) where T
     dx = T(lx) / T(nx + 1)
     dy = T(ly) / T(ny + 1)
     Dx = [[T(1) spzeros(T, 1, nx - 1)]; spdiagm(1=>ones(T, nx - 1)) - I] / dx
@@ -124,7 +124,7 @@ function laplacesetup(::Type{T}, nx::Int, ny::Int=nx, lx::Int=1,
 end
 
 function benchmarkcg!(benchmarker::Benchmarker, bs::BenchmarkSetup,
-        setupname::String, iters::Int, tol::AbstractFloat)
+        setupname::String, iters::Integer, tol::AbstractFloat)
     A = bs.A
     b = bs.b
     xexact = bs.xexact
@@ -167,7 +167,7 @@ function benchmarkcg!(benchmarker::Benchmarker, bs::BenchmarkSetup,
 end
 
 function benchmarkgmres!(benchmarker::Benchmarker, bs::BenchmarkSetup,
-        setupname::String, dims::Int, iters::Int, tol::AbstractFloat)
+        setupname::String, dims::Integer, iters::Integer, tol::AbstractFloat)
     A = bs.A
     b = bs.b
     xexact = bs.xexact
@@ -211,7 +211,7 @@ end
 const b = Benchmarker()
 for T in [Float32, Float64]
     tol = sqrt(eps(T))
-    for i in 0:5
+    for i in 0:10
         if i == 0
             b.disabled = true
         end
