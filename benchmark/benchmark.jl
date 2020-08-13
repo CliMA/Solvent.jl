@@ -28,13 +28,20 @@ struct BenchmarkSetup{AT, T}
 end
 
 mutable struct BenchmarkAccumulator
-    ncalls::Int64
+    runs::Int64
+    mintime::Float64
+    maxtime::Float64
     tottime::Float64
-    totallocs::Int64
+    minallocs::Float64
+    maxallocs::Float64
+    totallocs::Float64
+    minres::Float64
+    maxres::Float64
     totres::Float64
 
-    function BenchmarkAccumulator(time::Float64, allocs::Int64, res::AbstractFloat)
-        return new(1, time, allocs, res)
+    function BenchmarkAccumulator(time::AbstractFloat, allocs::AbstractFloat,
+            res::AbstractFloat)
+        return new(1, time, time, time, allocs, allocs, allocs, res, res, res)
     end
 end
 
@@ -48,17 +55,32 @@ mutable struct Benchmarker
 end
 
 function recordbenchmark(benchmarker::Benchmarker, name::String,
-        time::Float64, allocs::Int64, res::AbstractFloat)
+        time::AbstractFloat, allocs::AbstractFloat, res::AbstractFloat)
     if benchmarker.disabled
         return
     end
     storage = benchmarker.storage
     if haskey(storage, name)
         ba = storage[name]
-        ba.ncalls += 1
+        ba.runs += 1
         ba.tottime += time
         ba.totallocs += allocs
         ba.totres += res
+        if time < ba.mintime
+            ba.mintime = time
+        elseif time > ba.maxtime
+            ba.maxtime = time
+        end
+        if allocs < ba.minallocs
+            ba.minallocs = allocs
+        elseif allocs > ba.maxallocs
+            ba.maxallocs = allocs
+        end
+        if res < ba.minres
+            ba.minres = res
+        elseif res > ba.maxres
+            ba.maxres = res
+        end
     else
         storage[name] = BenchmarkAccumulator(time, allocs, res)
     end
@@ -68,16 +90,19 @@ function printbenchmarks(benchmarker::Benchmarker)
     storage = benchmarker.storage
     maxnamelen = maximum([length(name) for name in keys(storage)])
     println(rpad("Benchmark Name", maxnamelen),
-        "| Num Calls | Avg Time (ms) | Avg Allocs (MiB) | Avg Res  ")
-    println("-" ^ (maxnamelen + 58))
+        "| Runs |     Time (ms)     |   Allocs (MiB)    |     Residual     ")
+    println(" " ^ maxnamelen,
+        "|      |  Min   Max   Avg  |  Min   Max   Avg  |  Min   Max   Avg ")
+    println("-" ^ (maxnamelen + 63))
     for name in sort!(collect(keys(storage)))
         ba = storage[name]
-        print(rpad(name, maxnamelen))
-        @printf("  %-9d   %8.3f        %8.3f           %.3e\n",
-            ba.ncalls,
-            ba.tottime / ba.ncalls * 1000,
-            ba.totallocs / ba.ncalls / 2^20,
-            ba.totres / ba.ncalls)
+        print(rpad(name, maxnamelen + 3))
+        @printf(
+            "%-3d   %5.1f %5.1f %5.1f   %5.1f %5.1f %5.1f   %.0e %.0e %.0e\n",
+            ba.runs,
+            ba.mintime, ba.maxtime, ba.tottime / ba.runs,
+            ba.minallocs, ba.maxallocs, ba.totallocs / ba.runs,
+            ba.minres, ba.maxres, ba.totres / ba.runs)
     end
 end
 
@@ -137,7 +162,7 @@ function benchmarkcg!(benchmarker::Benchmarker, bs::BenchmarkSetup,
     prefix = join(["CG", setupname, eltype(xexact), size(A)[1], iters], '-')
     for i in 1:5
         recordbenchmark(benchmarker, string(prefix, '-', algnames[i]),
-            times[i], allocs[i], norm(xfinals[i] - xexact))
+            times[i] * 1000, allocs[i] / 2^20, norm(xfinals[i] - xexact))
     end
 end
 
@@ -179,7 +204,7 @@ function benchmarkgmres!(benchmarker::Benchmarker, bs::BenchmarkSetup,
         '-')
     for i in 1:4
         recordbenchmark(benchmarker, string(prefix, '-', algnames[i]),
-            times[i], allocs[i], norm(xfinals[i] - xexact))
+            times[i] * 1000, allocs[i] / 2^20, norm(xfinals[i] - xexact))
     end
 end
 
@@ -191,7 +216,7 @@ for T in [Float32, Float64]
             b.disabled = true
         end
         benchmarkcg!(b, laplacesetup(T, 100), "Laplace", 5000, tol)
-        benchmarkgmres!(b, laplacesetup(T, 100), "Laplace", 200, 10, tol)
+        benchmarkgmres!(b, laplacesetup(T, 100), "Laplace", 500, 10, tol)
         benchmarkgmres!(b, sparsesetup(T, 10000), "Sparse", 20, 10, tol)
         benchmarkgmres!(b, sparsesetup(T, 10000), "Sparse", 10, 20, tol)
         if i == 0
