@@ -6,7 +6,7 @@ using SparseArrays
 using Random
 using Printf
 
-# this test setup is partly baed on IterativeSolvers.jl, see e.g
+# this test setup is partly based on IterativeSolvers.jl, see e.g
 # https://github.com/JuliaMath/IterativeSolvers.jl/blob/master/test/cg.jl
 @testset "Solvent small full system: GCR" begin
     n = 10
