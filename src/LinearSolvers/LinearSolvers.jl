@@ -148,3 +148,4 @@ end
 
 include("gmres.jl")
 include("gcr.jl")
+include("cg.jl")
