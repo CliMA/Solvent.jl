@@ -51,3 +51,46 @@ end
     @test norm(A * x - b) < rtol * norm(A * x0 - b)
 
 end
+
+
+# Tests effectiveness of Jacobi preconditioner using specially designed matrix from:
+# http://www.math.iit.edu/~fass/477577_Chapter_16.pdf
+@testset "Solvent Preconditioned Jacobi: CG" begin
+    T = Float64
+    n = 1000
+    dv0 = .5 .+ .√(1:n)
+    dv1 = ones(n - 1)
+    dv2 = ones(n - 100)
+    A = spdiagm(0=>dv0) + spdiagm(1=>dv1) + spdiagm(-1=>dv1) + 
+        spdiagm(100=>dv2) + spdiagm(-100=>dv2)
+    @info "Size of matrix A: ($n, $n)"
+    b = ones(T, 1000)
+    x = rand(T, n)
+
+    mulbyA!(y, x) = (y .= A * x)
+
+    rtol = sqrt(eps(T))
+    atol = eps(T)
+    solver_type = ConjugateGradientMethod(M = 100)
+    identitysolver = LinearSolver(
+        mulbyA!,
+        solver_type,
+        x;
+        rtol = rtol,
+        atol = atol,
+    )
+    jacobisolver = LinearSolver(
+        mulbyA!,
+        solver_type,
+        x;
+        pc_alg = Jacobi(),
+        rtol = rtol,
+        atol = atol,
+    )
+
+    x0 = copy(x)
+    jacobiiters = linearsolve!(jacobisolver, x, b)
+    @test norm(A * x - b) < rtol * norm(A * x0 - b)
+    identityiters = linearsolve!(identitysolver, x0, b)
+    @test jacobiiters < identityiters
+end
