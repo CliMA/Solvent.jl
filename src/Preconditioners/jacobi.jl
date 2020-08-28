@@ -1,10 +1,10 @@
 
 export Jacobi
 
-struct Jacobi{S <: PCside} <: AbstractPreconditionerType
-    pc_side::S
-    function Jacobi(; pc_side = PCleft())
-        return new{typeof(pc_side)}(pc_side)
+struct Jacobi{PCleft} <: AbstractPreconditionerType
+    pc_side::PCleft
+    function Jacobi()
+        return new{PCleft}()
     end
 end
 
@@ -18,7 +18,7 @@ function cache(::Jacobi, linearoperator!, Q)
     return JacobiCache{AT}(x)
 end
 
-# Create P inverse operator
+# Create P inverse preconditioner operator
 function PCinitialize!(
     ::Jacobi,
     pc::Preconditioner,
@@ -30,13 +30,12 @@ function PCinitialize!(
     n = length(Q)
     A = similar(Q, n, n)
     pc.linop!(A, I)
-    d = diag(A)
     # store inverse of diagonal preconditioner
-    pc.cache.P_inv .= 1 ./ d
+    pc.cache.P_inv .= 1 ./ diag(A)
     return nothing
 end
 
-# Apply P inverse to Q
+# Apply P inverse
 function PCapply!(
     ::Jacobi,
     pc::Preconditioner,
