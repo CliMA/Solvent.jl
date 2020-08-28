@@ -316,7 +316,7 @@ for T in [Float32, Float64]
         benchmarkgmres!(b, simplesparsesetup(T, 10123), "SimpleSparse", 10, 90, tol)
         # Packages stop converging for Sparse 1, 2, 5, and Inf when M is lowered.
         benchmarkgmres!(b, sparsesetup(T, 500, 1), "Sparse1", 460, 2, tol)
-        benchmarkgmres!(b, sparsesetup(T, 500, 0.5), "Sparse2", 470, 2, tol)
+        benchmarkgmres!(b, sparsesetup(T, 500, 0.5), "Sparse2", 475, 2, tol)
         benchmarkgmres!(b, sparsesetup(T, 500, 0.2), "Sparse5", 490, 2, tol)
         benchmarkgmres!(b, sparsesetup(T, 500, 0), "SparseInf", 499, 2, tol)
         i == 0 && enable!(b)
