@@ -178,22 +178,34 @@ function gmres_cycle!(
     end
 
     # solve the triangular system
-    y = NTuple{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
+    # The commented-out version occasionally introduces a ~150% increase in
+    # allocations and a ~5% increase in time. When combined with the commented-
+    # out kernel abstraction code below, this becomes a ~800% increase in
+    # allocations and a ~200% increase in time.
+    # y = NTuple{j}(@views UpperTriangular(H[1:j, 1:j]) \ g0[1:j])
+    y = @views UpperTriangular(H[1:j, 1:j]) \ g0[1:j]
 
     # compose the solution
-    rv_Q = realview(Q)
-    rv_krylov_basis = realview.(krylov_basis)
-    groupsize = 256
-    event = Event(array_device(Q))
-    event = linearcombination!(array_device(Q), groupsize)(
-        rv_Q,
-        y,
-        rv_krylov_basis,
-        true;
-        ndrange = length(rv_Q),
-        dependencies = (event,),
-    )
-    wait(array_device(Q), event)
+    # The commented-out version occasionally introduces a ~100% increase in time
+    # without any increase in allocations. When combined with the commented-out
+    # code above, this becomes a ~800% increase in allocations and a ~200%
+    # increase in time.
+    # rv_Q = realview(Q)
+    # rv_krylov_basis = realview.(krylov_basis)
+    # groupsize = 256
+    # event = Event(array_device(Q))
+    # event = linearcombination!(array_device(Q), groupsize)(
+    #     rv_Q,
+    #     y,
+    #     rv_krylov_basis,
+    #     true;
+    #     ndrange = length(rv_Q),
+    #     dependencies = (event,),
+    # )
+    # wait(array_device(Q), event)
+    for i in 1:j
+        @. Q += y[i] * krylov_basis[i]
+    end
 
     # unwind right-preconditioning
     if isa(pc.pc_side, PCright)

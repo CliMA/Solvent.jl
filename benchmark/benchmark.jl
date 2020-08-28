@@ -48,25 +48,28 @@ end
 
 mutable struct BenchmarkTracker
     runs::Int
-    timetracker::StatTracker
-    alloctracker::StatTracker
-    itertracker::StatTracker
-    restracker::StatTracker
+    time::StatTracker
+    alloc::StatTracker
+    iter::StatTracker
+    res::StatTracker
+    err::StatTracker
 
     function BenchmarkTracker(time::AbstractFloat, allocs::AbstractFloat,
-            iters::Integer, res::AbstractFloat)
+            iters::Integer, res::AbstractFloat, err::AbstractFloat)
         return new(1, StatTracker(time), StatTracker(allocs),
-            StatTracker(iters), StatTracker(res))
+            StatTracker(iters), StatTracker(res), StatTracker(err))
     end
 end
 
 function addbenchmark!(bt::BenchmarkTracker, time::AbstractFloat,
-        allocs::AbstractFloat, iters::Integer, res::AbstractFloat)
+        allocs::AbstractFloat, iters::Integer, res::AbstractFloat,
+        err::AbstractFloat)
     bt.runs += 1
-    addstat!(bt.timetracker, time)
-    addstat!(bt.alloctracker, allocs)
-    addstat!(bt.itertracker, iters)
-    addstat!(bt.restracker, res)
+    addstat!(bt.time, time)
+    addstat!(bt.alloc, allocs)
+    addstat!(bt.iter, iters)
+    addstat!(bt.res, res)
+    addstat!(bt.err, err)
 end
 
 mutable struct Benchmarker
@@ -87,12 +90,13 @@ function disable!(b::Benchmarker)
 end
 
 function recordbenchmark!(b::Benchmarker, name::String, time::AbstractFloat,
-        allocs::AbstractFloat, iters::Integer, res::AbstractFloat)
+        allocs::AbstractFloat, iters::Integer, res::AbstractFloat,
+        err::AbstractFloat)
     if b.enabled
         if haskey(b.storage, name)
-            addbenchmark!(b.storage[name], time, allocs, iters, res)
+            addbenchmark!(b.storage[name], time, allocs, iters, res, err)
         else
-            b.storage[name] = BenchmarkTracker(time, allocs, iters, res)
+            b.storage[name] = BenchmarkTracker(time, allocs, iters, res, err)
         end
     end
 end
@@ -100,35 +104,96 @@ end
 function printbenchmarks(b::Benchmarker)
     storage = b.storage
     maxnamelen = maximum([length(name) for name in keys(storage)])
-    println(rpad("Benchmark Name", maxnamelen),
-        "| Runs |       Time (ms)      |    Allocs (MiB)   |    Iters    |     Residual     ")
-    println(" " ^ maxnamelen,
-        "|      |   Min    Max    Avg  |  Min   Max   Avg  | Min Max Avg |  Min   Max   Avg ")
-    println("-" ^ (maxnamelen + 83))
+    print(
+        rpad("Benchmark Name", maxnamelen),
+        "| Runs |       Time (ms)      | Allocations (MiB) | Iterations  |",
+        " Relative Residual |  Absolute Error  \n",
+        " " ^ maxnamelen,
+        "|      |   Min    Max    Avg  |  Min   Max   Avg  | Min Max Avg |",
+        "  Min   Max   Avg  |  Min   Max   Avg \n",
+        "-" ^ (maxnamelen + 103),
+        "\n")
     for name in sort!(collect(keys(storage)))
         bt = storage[name]
         print(rpad(name, maxnamelen + 3))
-        @printf(
-            "%-3d   %6.1f %6.1f %6.1f   %5.1f %5.1f %5.1f   %3d %3d %3d   %.0e %.0e %.0e\n",
+        @printf("%-3d   %6.1f %6.1f %6.1f   %5.1f %5.1f %5.1f   %3d %3d %3d   ",
             bt.runs,
-            bt.timetracker.min, bt.timetracker.max, bt.timetracker.tot / bt.runs,
-            bt.alloctracker.min, bt.alloctracker.max, bt.alloctracker.tot / bt.runs,
-            bt.itertracker.min, bt.itertracker.max, bt.itertracker.tot / bt.runs,
-            bt.restracker.min, bt.restracker.max, bt.restracker.tot / bt.runs)
+            bt.time.min, bt.time.max, bt.time.tot / bt.runs,
+            bt.alloc.min, bt.alloc.max, bt.alloc.tot / bt.runs,
+            bt.iter.min, bt.iter.max, bt.iter.tot / bt.runs)
+        @printf("%.0e %.0e %.0e   %.0e %.0e %.0e\n",
+            bt.res.min, bt.res.max, bt.res.tot / bt.runs,
+            bt.err.min, bt.err.max, bt.err.tot / bt.runs)
     end
 end
 
-function sparsesetup(::Type{T}, n::Integer, α::Number=0.01,
-        density::AbstractFloat=0.05) where T
-    return BenchmarkSetup(I + T(α) * sprandn(T, n, n, density))
+# Constructs an m×n random sparse matrix with a relatively low condition number
+# and a density no less than d.
+function simplesparsesetup(::Type{T}, m::Integer, α::Number=0.01,
+        d::AbstractFloat=0.05, n::Integer=m) where T
+    return BenchmarkSetup(I + T(α) * sprandn(T, m, n, d))
 end
 
+# Constructs a m×n random sparse matrix with reciprocal condition number rc and
+# a density roughly equal to (though slightly above) d. Based on the code from
+# https://searchcode.com/file/124101202/scripts/sparse/private/__sprand__.m/
+function sparsesetup(::Type{T}, m::Integer, rc::Real=0.9,
+        d::AbstractFloat=0.05, n::Integer=m) where T
+    if rc < 0 || rc > 1
+        error("reciprocal condition number lies outside the interval [0, 1]")
+    end
+
+    singularvalues = rand(min(m, n)) .* (1 - rc) .+ rc
+    singularvalues[1] = 1
+    singularvalues[end] = rc
+    S = SparseMatrixCSC{T, Int}(spdiagm(m, n, 0=>singularvalues))
+
+    U = SparseMatrixCSC{T, Int}(sparse(I, m, m))
+    V = SparseMatrixCSC{T, Int}(sparse(I, n, n))
+    k = m * n * d
+    while nnz(S) < k
+        if m > 1
+            angle = rand() * 2 * pi
+            c = cos(angle)
+            s = sin(angle)
+            i, j = randperm(m)[1:2]
+            U[i, i] = c
+            U[i, j] = -s
+            U[j, i] = s
+            U[j, j] = c
+            S = U * S
+            U[i, i] = U[j, j] = 1
+            U[i, j] = U[j, i] = 0
+            dropzeros!(U)
+        end
+        if n > 1
+            angle = rand() * 2 * pi
+            c = cos(angle)
+            s = sin(angle)
+            i, j = randperm(n)[1:2]
+            V[i, i] = c
+            V[i, j] = s
+            V[j, i] = -s
+            V[j, j] = c
+            S = S * V
+            V[i, i] = V[j, j] = 1
+            V[i, j] = V[j, i] = 0
+            dropzeros!(V)
+        end
+    end
+
+    return BenchmarkSetup(S)
+end
+
+# Constructs the matrix approximation of -∇² for an lx×ly box of nx×ny points
+# with Dirichlet boundary conditions. Based on the code from
+# http://math.mit.edu/~stevenj/18.303/lecture-10.html
 function laplacesetup(::Type{T}, nx::Integer, ny::Integer=nx, lx::Integer=1,
         ly::Integer=lx) where T
     dx = T(lx) / T(nx + 1)
     dy = T(ly) / T(ny + 1)
-    Dx = [[T(1) spzeros(T, 1, nx - 1)]; spdiagm(1=>ones(T, nx - 1)) - I] / dx
-    Dy = [[T(1) spzeros(T, 1, ny - 1)]; spdiagm(1=>ones(T, ny - 1)) - I] / dy
+    Dx = [[one(T) spzeros(T, 1, nx - 1)]; spdiagm(1=>ones(T, nx - 1)) - I] / dx
+    Dy = [[one(T) spzeros(T, 1, ny - 1)]; spdiagm(1=>ones(T, ny - 1)) - I] / dy
     Ax = Dx' * Dx
     Ay = Dy' * Dy
     A = kron(sparse(I, ny, ny), Ax) + kron(Ay, sparse(I, nx, nx))
@@ -183,6 +248,7 @@ function benchmarkcg!(benchmarker::Benchmarker, bs::BenchmarkSetup,
     for i in 1:5
         recordbenchmark!(benchmarker, string(prefix, '-', algnames[i]),
             times[i] * 1000, allocs[i] / 2^20, iters[i],
+            norm(A * xfinals[i] - b) / norm(A * xinit - b),
             norm(xfinals[i] - xexact))
     end
 end
@@ -230,6 +296,7 @@ function benchmarkgmres!(benchmarker::Benchmarker, bs::BenchmarkSetup,
     for i in 1:4
         recordbenchmark!(benchmarker, string(prefix, '-', algnames[i]),
             times[i] * 1000, allocs[i] / 2^20, iters[i],
+            norm(A * xfinals[i] - b) / norm(A * xinit - b),
             norm(xfinals[i] - xexact))
     end
 end
@@ -241,12 +308,17 @@ for T in [Float32, Float64]
         i == 0 && disable!(b)
         benchmarkcg!(b, laplacesetup(T, 100), "Laplace", 5000, tol)
         benchmarkgmres!(b, laplacesetup(T, 100), "Laplace", 500, 10, tol)
-        benchmarkgmres!(b, sparsesetup(T, 10000), "Sparse", 14, 1, tol)
-        benchmarkgmres!(b, sparsesetup(T, 10000), "Sparse", 12, 3, tol)
-        benchmarkgmres!(b, sparsesetup(T, 10000), "Sparse", 11, 5, tol)
-        benchmarkgmres!(b, sparsesetup(T, 10000), "Sparse", 10, 8, tol)
-        # Solvent does not converge with M = 9, even when K = 10000.
-        benchmarkgmres!(b, sparsesetup(T, 10123), "Sparse", 10, 90, tol)
+        benchmarkgmres!(b, simplesparsesetup(T, 10000), "SimpleSparse", 14, 1, tol)
+        benchmarkgmres!(b, simplesparsesetup(T, 10000), "SimpleSparse", 12, 3, tol)
+        benchmarkgmres!(b, simplesparsesetup(T, 10000), "SimpleSparse", 11, 5, tol)
+        benchmarkgmres!(b, simplesparsesetup(T, 10000), "SimpleSparse", 10, 8, tol)
+        # Solvent does not converge for SimpleSparse with M = 9, even if K = 10000.
+        benchmarkgmres!(b, simplesparsesetup(T, 10123), "SimpleSparse", 10, 90, tol)
+        # Packages stop converging for Sparse 1, 2, 5, and Inf when M is lowered.
+        benchmarkgmres!(b, sparsesetup(T, 500, 1), "Sparse1", 460, 2, tol)
+        benchmarkgmres!(b, sparsesetup(T, 500, 0.5), "Sparse2", 470, 2, tol)
+        benchmarkgmres!(b, sparsesetup(T, 500, 0.2), "Sparse5", 490, 2, tol)
+        benchmarkgmres!(b, sparsesetup(T, 500, 0), "SparseInf", 499, 2, tol)
         i == 0 && enable!(b)
     end
 end
