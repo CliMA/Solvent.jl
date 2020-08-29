@@ -52,7 +52,7 @@ function LSinitialize!(
     linearoperator!(r, Q, args...)
     r .= Qrhs .- r
 
-    residual_norm = norm(r, weighted_norm)
+    residual_norm = norm(r)
     threshold = solver.rtol * residual_norm
 
     converged = false
@@ -94,7 +94,7 @@ function LSsolve!(
         α = ω0 / dot(p, Ap)
         Q .+= α .* p
         r .= r .- α .* Ap
-        residual_norm = norm(r, weighted_norm)
+        residual_norm = norm(r)
         if residual_norm < threshold
             converged = true
             break

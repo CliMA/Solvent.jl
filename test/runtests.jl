@@ -1,4 +1,9 @@
+group = get(ARGS,1,"default")
 
-include("test_gmres.jl")
-include("test_gcr.jl")
-include("test_cg.jl")
+if group == "default"
+    include("gmres.jl")
+    include("gcr.jl")
+    include("cg.jl")
+elseif group == "gpu"
+    include("gmres_gpu.jl")
+end
