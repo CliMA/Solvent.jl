@@ -2,4 +2,6 @@ steps:
 - label: "run unit tests"
   command: "julia --color=yes --project -e 'using Pkg; Pkg.test(test_args=[\"gpu\"])'"
   agents:
+    config: gpu
+    queue: central
     slurm_gres: "gpu:1"
