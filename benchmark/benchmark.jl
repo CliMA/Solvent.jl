@@ -11,6 +11,7 @@ import IterativeSolvers
 import Krylov
 import KrylovKit
 import Solvent
+import PETSc
 
 struct BenchmarkSetup{AT, T}
     A::AT
@@ -207,11 +208,11 @@ function benchmarkcg!(benchmarker::Benchmarker, bs::BenchmarkSetup,
     xexact = bs.xexact
     xinit = bs.xinit
     algnames = ["ConjGrad", "IterativeSolvers", "Krylov", "KrylovKit",
-        "Solvent"]
-    times = Array{Float64, 1}(undef, 5)
-    allocs = Array{Int, 1}(undef, 5)
-    iters = Array{Int, 1}(undef, 5)
-    xfinals = [copy(xinit) for _ in 1:5]
+        "PETSc", "Solvent"]
+    times = Array{Float64, 1}(undef, 6)
+    allocs = Array{Int, 1}(undef, 6)
+    iters = Array{Int, 1}(undef, 6)
+    xfinals = [copy(xinit) for _ in 1:6]
     result, times[1], allocs[1], _, _ = @timed begin
         ConjGrad.cg!((x) -> (A * x), b, xfinals[1]; tol = Float64(tol),
             maxIter = maxiters)
@@ -233,7 +234,28 @@ function benchmarkcg!(benchmarker::Benchmarker, bs::BenchmarkSetup,
     end
     iters[4] = result[2].numops - 1 # Linear operator applied once before loop.
     xfinals[4] = result[1]
-    iters[5], times[5], allocs[5], _, _ = @timed begin
+    _, times[5], allocs[5], _, _ = @timed begin
+        APETSc = PETSc.MatSeqAIJ(A)
+        bPETSc = PETSc.VecSeq(b)
+        xPETSc = PETSc.VecSeq(xfinals[5])
+        ksp = PETSc.KSP(
+            APETSc;
+            ksp_type = "cg",
+            ksp_max_it = maxiters,
+            ksp_atol = tol,
+            ksp_rtol = tol,
+            pc_type = "none",
+        )
+        PETSc.solve!(xPETSc, ksp, bPETSc)
+        # iters[5] = PETSc.iters(ksp) # Currently returns garbage.
+        PETSc.destroy(ksp)
+        PETSc.destroy(APETSc)
+        PETSc.destroy(bPETSc)
+        PETSc.destroy(xPETSc)
+        PETSc.finalize()
+    end
+    iters[5] = 0
+    iters[6], times[6], allocs[6], _, _ = @timed begin
         linearsolver = Solvent.LinearSolver(
             (y, x) -> (y .= A * x),
             Solvent.ConjugateGradientMethod(M = maxiters),
@@ -242,10 +264,10 @@ function benchmarkcg!(benchmarker::Benchmarker, bs::BenchmarkSetup,
             rtol = tol,
             atol = tol,
         )
-        Solvent.linearsolve!(linearsolver, xfinals[5], b)
+        Solvent.linearsolve!(linearsolver, xfinals[6], b)
     end
     prefix = join(["CG", setupname, eltype(xexact), size(A)[1], maxiters], '-')
-    for i in 1:5
+    for i in 1:6
         recordbenchmark!(benchmarker, string(prefix, '-', algnames[i]),
             times[i] * 1000, allocs[i] / 2^20, iters[i],
             norm(A * xfinals[i] - b) / norm(A * xinit - b),
@@ -259,11 +281,11 @@ function benchmarkgmres!(benchmarker::Benchmarker, bs::BenchmarkSetup,
     b = bs.b
     xexact = bs.xexact
     xinit = bs.xinit
-    algnames = ["IterativeSolvers", "Krylov", "KrylovKit", "Solvent"]
-    times = Array{Float64, 1}(undef, 4)
-    allocs = Array{Int, 1}(undef, 4)
-    iters = Array{Int, 1}(undef, 4)
-    xfinals = [copy(xinit) for _ in 1:4]
+    algnames = ["IterativeSolvers", "Krylov", "KrylovKit", "PETSc", "Solvent"]
+    times = Array{Float64, 1}(undef, 5)
+    allocs = Array{Int, 1}(undef, 5)
+    iters = Array{Int, 1}(undef, 5)
+    xfinals = [copy(xinit) for _ in 1:5]
     result, times[1], allocs[1], _, _ = @timed begin
         IterativeSolvers.gmres!(xfinals[1], A, b, tol = tol, restart = dims,
             maxiter = dims * maxiters, log = true)
@@ -280,7 +302,29 @@ function benchmarkgmres!(benchmarker::Benchmarker, bs::BenchmarkSetup,
     end
     iters[3] = result[2].numops - 2 # Linear operator applied twice before loop.
     xfinals[3] = result[1]
-    iters[4], times[4], allocs[4], _, _ = @timed begin
+    _, times[4], allocs[4], _, _ = @timed begin
+        APETSc = PETSc.MatSeqAIJ(A)
+        bPETSc = PETSc.VecSeq(b)
+        xPETSc = PETSc.VecSeq(xfinals[4])
+        ksp = PETSc.KSP(
+            APETSc;
+            ksp_type = "gmres",
+            ksp_gmres_restart = dims,
+            ksp_max_it = maxiters,
+            ksp_atol = tol,
+            ksp_rtol = tol,
+            pc_type = "none",
+        )
+        PETSc.solve!(xPETSc, ksp, bPETSc)
+        # iters[4] = PETSc.iters(ksp) # Currently returns garbage.
+        PETSc.destroy(ksp)
+        PETSc.destroy(APETSc)
+        PETSc.destroy(bPETSc)
+        PETSc.destroy(xPETSc)
+        PETSc.finalize()
+    end
+    iters[4] = 0
+    iters[5], times[5], allocs[5], _, _ = @timed begin
         linearsolver = Solvent.LinearSolver(
             (y, x) -> (y .= A * x),
             Solvent.GeneralizedMinimalResidualMethod(M = dims, K = maxiters),
@@ -289,11 +333,11 @@ function benchmarkgmres!(benchmarker::Benchmarker, bs::BenchmarkSetup,
             rtol = tol,
             atol = tol,
         )
-        Solvent.linearsolve!(linearsolver, xfinals[4], b)
+        Solvent.linearsolve!(linearsolver, xfinals[5], b)
     end
     prefix = join(["GMRES", setupname, eltype(xexact), size(A)[1], dims,
         maxiters], '-')
-    for i in 1:4
+    for i in 1:5
         recordbenchmark!(benchmarker, string(prefix, '-', algnames[i]),
             times[i] * 1000, allocs[i] / 2^20, iters[i],
             norm(A * xfinals[i] - b) / norm(A * xinit - b),
@@ -302,7 +346,7 @@ function benchmarkgmres!(benchmarker::Benchmarker, bs::BenchmarkSetup,
 end
 
 const b = Benchmarker()
-for T in [Float32, Float64]
+for T in [Float64] # [Float32, Float64] # PETSc.jl does not work with Float32.
     tol = sqrt(eps(T))
     for i in 0:100
         i == 0 && disable!(b)
@@ -317,7 +361,7 @@ for T in [Float32, Float64]
         # Packages stop converging for Sparse 1, 2, 5, and Inf when M is lowered.
         benchmarkgmres!(b, sparsesetup(T, 500, 1), "Sparse1", 460, 2, tol)
         benchmarkgmres!(b, sparsesetup(T, 500, 0.5), "Sparse2", 475, 2, tol)
-        benchmarkgmres!(b, sparsesetup(T, 500, 0.2), "Sparse5", 490, 2, tol)
+        benchmarkgmres!(b, sparsesetup(T, 500, 0.2), "Sparse5", 491, 2, tol)
         benchmarkgmres!(b, sparsesetup(T, 500, 0), "SparseInf", 499, 2, tol)
         i == 0 && enable!(b)
     end
