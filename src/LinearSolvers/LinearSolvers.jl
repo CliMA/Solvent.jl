@@ -111,9 +111,7 @@ function linearsolve!(
 )
     converged = false
     iters = 0
-    krylov_alg = linearsolver.krylov_alg
     converged, threshold = LSinitialize!(
-        krylov_alg,
         linearsolver,
         Q,
         Qrhs,
