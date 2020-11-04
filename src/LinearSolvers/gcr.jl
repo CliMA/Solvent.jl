@@ -1,7 +1,29 @@
 
 export GeneralizedConjugateResidualMethod
 
+"""
+    GeneralizedConjugateResidualMethod(; M=30, K=10)
 
+# Conjugate Residual
+This object represents an iterative Krylov method for solving a linear system.
+The constructor parameter `M` is the number of steps after which the algorithm
+is restarted (if it has not converged), `K` is the maximal number of restarts. 
+The amount of memory required by the solver state is roughly `(2K + 2) * N`, where `N`
+is the the number of unknowns. This uses the restarted Generalized Conjugate
+Residual method of Eisenstat (1983).
+
+## References
+    @article{eisenstat1983variational,
+        title={Variational iterative methods for nonsymmetric systems of linear equations},
+        author={Eisenstat, Stanley C and Elman, Howard C and Schultz, Martin H},
+        journal={SIAM Journal on Numerical Analysis},
+        volume={20},
+        number={2},
+        pages={345--357},
+        year={1983},
+        publisher={SIAM}
+    }
+"""
 struct GeneralizedConjugateResidualMethod <: AbstractKrylovMethod
     "Maximum number of Krylov iterations"
     M::Int
@@ -53,7 +75,6 @@ function LSinitialize!(
 )
     linearoperator! = solver.linop!
     pc = solver.pc
-    PCinitialize!(pc, Q, Qrhs, args...)
 
     cache = solver.cache
     residual = cache.residual

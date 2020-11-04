@@ -1,6 +1,11 @@
 
 export Identity
 
+"""
+    Identity(; pc_side=PCleft())
+
+Preconditioner object for the identity matrix (no preconditioning).
+"""
 struct Identity{S <: PCside} <: AbstractPreconditionerType
     pc_side::S
     function Identity(; pc_side = PCleft())

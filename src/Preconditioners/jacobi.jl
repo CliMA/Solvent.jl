@@ -1,6 +1,13 @@
 
 export Jacobi
 
+"""
+    Jacobi()
+
+Preconditioner object for the Jacobi (diagonal) left-side preconditioner.
+
+Effective for diagonally-dominant systems.
+"""
 struct Jacobi{PCleft} <: AbstractPreconditionerType
     pc_side::PCleft
     function Jacobi()

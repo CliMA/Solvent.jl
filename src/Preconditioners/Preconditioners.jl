@@ -8,8 +8,12 @@ export PCside, PCright, PCleft
 """
     AbstractPreconditioner
 
-This is an abstract type representing a an abstract
-preconditioner.
+This is an abstract type representing an abstract preconditioner.
+
+The available concrete implementations are:
+
+- [`Solvent.Identity`](@ref)
+- [`Solvent.Jacobi`](@ref)
 """
 abstract type AbstractPreconditioner end
 
@@ -20,6 +24,15 @@ abstract type PCside end
 struct PCright <: PCside end
 struct PCleft <: PCside end
 
+"""
+    function Preconditioner(
+        pc_type::AbstractPreconditionerType,
+        linearoperator!,
+        Q,
+    )
+
+Construct preconditioner for `linearoperator!`.
+"""
 mutable struct Preconditioner{
     pcType <: AbstractPreconditionerType,
     OP,
@@ -51,6 +64,16 @@ mutable struct Preconditioner{
     end
 end
 
+"""
+    PCinitialize!(
+        pc::AbstractPreconditioner,
+        Q,
+        Qrhs,
+        args...,
+    )
+
+Perform precomputations for `pc`.
+"""
 function PCinitialize!(
     pc::AbstractPreconditioner,
     Q,
@@ -60,6 +83,16 @@ function PCinitialize!(
     PCinitialize!(pc.pc_type, pc, Q, Qrhs, args...)
 end
 
+"""
+    PCapply!(
+        pc::AbstractPreconditioner,
+        W,
+        Q,
+        args...,
+    )
+
+Apply preconditioner `pc` to `Q` and store the result in `W`.
+"""
 function PCapply!(
     pc::AbstractPreconditioner,
     W,

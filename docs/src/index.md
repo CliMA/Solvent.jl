@@ -1,7 +1,10 @@
 # Solvent.jl
 
-```@docs
-AbstractSystemSolver
+A CPU- and GPU- friendly package for linear and nonlinear solvers.
 
-AbstractLinearSolver
+```@contents
+Pages = [
+    "algorithms.md",
+    "preconditioners.md"
+]
 ```

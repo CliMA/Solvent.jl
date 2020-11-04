@@ -1,6 +1,28 @@
 
 export ConjugateGradientMethod
 
+"""
+    ConjugateGradientMethod(; M=30)
+
+# CG
+This object represents an iterative Krylov method for solving a linear system.
+The constructor parameter `M` is the number maximum number of iterations. This
+uses the preconditioned Conjugate Gradient method of Barrett et al. (1994).
+
+## References
+    @book{barrett1994cg,
+    title = {Templates for the Solution of Linear Systems: Building Blocks for Iterative Methods},
+    author = {
+            Barrett, Richard and Berry, Michael and Chan, Tony F. and Demmel, James
+            and Donato, June and Dongarra, Jack and Eijkhout, Victor and Pozo, Roldan
+            and Romine, Charles and van der Vorst, Henk
+        },
+    pages={12-15},
+    year = {1994},
+    publisher = {SIAM},
+    doi = {10.1137/1.9781611971538}
+    }
+"""
 struct ConjugateGradientMethod <: AbstractKrylovMethod
     "Maximum number of CG iterations"
     M::Int
@@ -42,7 +64,6 @@ function LSinitialize!(
 )
     linearoperator! = solver.linop!
     pc = solver.pc
-    PCinitialize!(pc, Q, Qrhs, args...)
 
     cache = solver.cache
     r = cache.r
