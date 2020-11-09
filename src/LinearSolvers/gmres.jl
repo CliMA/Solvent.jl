@@ -1,6 +1,30 @@
 
 export GeneralizedMinimalResidualMethod
 
+
+"""
+    GeneralizedMinimalResidualMethod(; M=30, K=10)
+
+# GMRES
+This object represents an iterative Krylov method for solving a linear system.
+The constructor parameter `M` is the number of steps after which the algorithm
+is restarted (if it has not converged), `K` is the maximal number of restarts.
+The amount of memory required for the solver state is roughly `(M + 1) * N`, where `N`
+is the number of unknowns. This uses the restarted Generalized Minimal
+Residual method of Saad and Schultz (1986).
+
+## References
+    @article{saad1986gmres,
+      title={GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems},
+      author={Saad, Youcef and Schultz, Martin H},
+      journal={SIAM Journal on scientific and statistical computing},
+      volume={7},
+      number={3},
+      pages={856--869},
+      year={1986},
+      publisher={SIAM}
+    }
+"""
 struct GeneralizedMinimalResidualMethod <: AbstractKrylovMethod
     "Maximum number of Krylov iterations"
     M::Int
@@ -49,7 +73,6 @@ function LSinitialize!(
 )
     linearoperator! = solver.linop!
     pc = solver.pc
-    PCinitialize!(pc, Q, Qrhs, args...)
 
     cache = solver.cache
     g0 = cache.g0
